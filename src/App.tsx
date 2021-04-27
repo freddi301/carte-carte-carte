@@ -5,51 +5,112 @@ export default function App() {
   const [fight, setFight] = useState(
     startFight({ hp: 30, deck: fighterDeck }, { hp: 30, deck: fighterDeck })
   );
-  return (
-    <div
-      css={css`
-        width: 100vw;
-        height: 100vh;
-        background-color: lightgray;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-      `}
-    >
-      <div
-        css={css`
-          grid-column: 1;
-        `}
-      >
-        <h1>Player</h1>
-        <p>hp: {fight.left.hp}</p>
-        <p>round: {fight.round}</p>
+  const fightState = getFightState(fight);
+  switch (fightState) {
+    case "lose":
+      return (
         <div
           css={css`
+            width: 100vw;
+            height: 100vh;
+            color: #be123c;
+            background-color: #0f172a;
             display: flex;
+            align-items: center;
+            justify-content: center;
           `}
         >
-          {fight.left.hand.map((card, index) => {
-            return (
-              <Card
-                key={index}
-                card={card}
-                onPlay={() => setFight(playCard(index, fight))}
-              />
-            );
-          })}
+          <h1>GAME OVER ☠</h1>
         </div>
-      </div>
-      <div
-        css={css`
-          grid-column: 2;
-        `}
-      >
-        <h1>Mostro</h1>
-        <p>hp: {fight.right.hp}</p>
-        <Card card={fight.right.hand} />
-      </div>
-    </div>
-  );
+      );
+    case "win":
+      return (
+        <div
+          css={css`
+            width: 100vw;
+            height: 100vh;
+            color: #0ea5e9;
+            background-color: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          `}
+        >
+          <h1>VICTORY 🖕</h1>
+        </div>
+      );
+    case "tie": {
+      return (
+        <div
+          css={css`
+            width: 100vw;
+            height: 100vh;
+            background-color: #e4e4e7;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            grid-template-rows: auto 1fr;
+          `}
+        >
+          <div
+            css={css`
+              grid-row: 1;
+              grid-column: 1 / span 2;
+              text-align: center;
+            `}
+          >
+            <h2>Round: {fight.round}</h2>
+          </div>
+          <div
+            css={css`
+              grid-row: 2;
+              grid-column: 1;
+            `}
+          >
+            <div
+              css={css`
+                padding: 40px;
+              `}
+            >
+              <h1>Player</h1>
+              <p>hp: {fight.left.hp}</p>
+              <p>remaining cards: {fight.left.deck.length}</p>
+            </div>
+            <div
+              css={css`
+                display: flex;
+              `}
+            >
+              {fight.left.hand.map((card, index) => {
+                return (
+                  <Card
+                    key={index}
+                    card={card}
+                    onPlay={() => setFight(playCard(index, fight))}
+                  />
+                );
+              })}
+            </div>
+          </div>
+          <div
+            css={css`
+              grid-row: 2;
+              grid-column: 2;
+            `}
+          >
+            <div
+              css={css`
+                padding: 40px;
+              `}
+            >
+              <h1>Mostro</h1>
+              <p>hp: {fight.right.hp}</p>
+            </div>
+            <Card card={fight.right.hand} />
+          </div>
+        </div>
+      );
+    }
+  }
 }
 
 // function Character({ character }: { character: Character }) {
@@ -73,6 +134,11 @@ function Card({ card, onPlay }: { card: Card; onPlay?(): void }) {
         box-sizing: border-box;
         box-shadow: rgba(0, 0, 0, 0.19) 0px 10px 20px,
           rgba(0, 0, 0, 0.23) 0px 6px 6px;
+        transition: 0.5s;
+        background-color: ${card.color};
+        &:hover {
+          transform: scale(1.3);
+        }
       `}
       onClick={onPlay}
     >
@@ -88,6 +154,7 @@ type Card = {
   description: string;
   attack: number;
   defense: number;
+  color: string;
 };
 
 type Fight = {
@@ -153,6 +220,7 @@ const Spadata: Card = {
   description: "",
   attack: 5,
   defense: 1,
+  color: "#9F1239",
 };
 
 const Parata: Card = {
@@ -160,6 +228,7 @@ const Parata: Card = {
   description: "",
   attack: 1,
   defense: 5,
+  color: "#3B82F6",
 };
 
 const Riposo: Card = {
@@ -167,12 +236,40 @@ const Riposo: Card = {
   description: "",
   attack: 0,
   defense: 1,
+  color: "#71717A",
+};
+
+const DoppiaParata = {
+  title: "Doppia Parata",
+  description: "",
+  attack: 0,
+  defense: 9,
+  color: "#3B82F6",
+};
+
+const DoppiaSpadata = {
+  title: "Doppia Spadata",
+  description: "",
+  attack: 8,
+  defense: 2,
+  color: "#9F1239",
+};
+
+const Zaccagnata = {
+  title: "Zaccagnata",
+  description: "",
+  attack: 3,
+  defense: 3,
+  color: "#A855F7",
 };
 
 const fighterDeck: Array<Card> = [
   ...repeat(Spadata, 10),
   ...repeat(Parata, 10),
   ...repeat(Riposo, 10),
+  ...repeat(DoppiaParata, 2),
+  ...repeat(DoppiaSpadata, 2),
+  ...repeat(Zaccagnata, 2),
 ];
 
 function repeat<T>(item: T, times: number): Array<T> {
@@ -208,4 +305,10 @@ function removeCard(cardIndex: number, deck: Array<Card>) {
   const newDeck = [...deck];
   newDeck.splice(cardIndex, 1);
   return newDeck;
+}
+
+function getFightState(fight: Fight) {
+  if (fight.left.hp <= 0) return "lose";
+  if (fight.right.hp <= 0) return "win";
+  return "tie";
 }
