@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useState } from "react";
 import { css } from "styled-components/macro";
 
 // strength (enhance : heavy attack, heavy defence)
@@ -7,12 +7,8 @@ import { css } from "styled-components/macro";
 // wisdom (more attack magic, more powerful defensive magic)
 
 export default function App() {
-  const [leftDeckName, leftDeck] = useMemo(() => randomDeck(), []);
-  const [rightDeckName, rightDeck] = useMemo(() => randomDeck(), []);
-  const [fight, setFight] = useState(() =>
-    startFight({ hp: 80, deck: leftDeck }, { hp: 80, deck: rightDeck })
-  );
-  const fightState = getFightState(fight);
+  const [world, setWorld] = useState(startWorld);
+  const fightState = getFightState(world.fight);
   return (
     <div
       css={css`
@@ -31,7 +27,9 @@ export default function App() {
           text-align: center;
         `}
       >
-        <h2>Round: {fight.round}</h2>
+        <h2>
+          Floor: {world.floor} Round: {world.fight.round}
+        </h2>
         {(() => {
           switch (fightState) {
             case "lose":
@@ -68,23 +66,38 @@ export default function App() {
             padding: 40px;
           `}
         >
-          <h1>{leftDeckName}</h1>
-          <Healthbar health={fight.left.hp} />
-          <Deck deck={fight.left.deck} />
+          <h1>{world.fight.player.character.name}</h1>
+          <Equipment equipment={world.fight.player.character.equipment} />
+          <Healthbar health={world.fight.player.hp} />
+          <Deck deck={world.fight.player.deck} />
         </div>
         <div
           css={css`
             display: flex;
           `}
         >
-          {fight.left.hand.map((card, index) => {
+          {world.fight.player.hand.map((card, index) => {
             return (
               <Card
                 key={index}
                 card={card}
                 onPlay={() => {
-                  if (fightState === "tie") {
-                    setFight(playCard(index, fight));
+                  switch (fightState) {
+                    case "tie": {
+                      setWorld((world) => ({
+                        ...world,
+                        fight: playCard(index, world.fight),
+                      }));
+                      break;
+                    }
+                    case "win": {
+                      setWorld(nextFight(world.floor, world.player));
+                      break;
+                    }
+                    case "lose": {
+                      setWorld(startWorld());
+                      break;
+                    }
                   }
                 }}
               />
@@ -103,22 +116,54 @@ export default function App() {
             padding: 40px;
           `}
         >
-          <h1>{rightDeckName}</h1>
-          <Healthbar health={fight.right.hp} />
-          <Deck deck={fight.right.deck} />
+          <h1>{world.fight.mob.character.name}</h1>
+          <Equipment equipment={world.fight.mob.character.equipment} />
+          <Healthbar health={world.fight.mob.hp} />
+          <Deck deck={world.fight.mob.deck} />
         </div>
-        <Card card={fight.right.hand} />
+        <Card card={world.fight.mob.hand} />
       </div>
     </div>
   );
 }
 
 function Healthbar({ health }: { health: number }) {
-  return <div css={css``}>{"❤️".repeat(Math.max(0, health))}</div>;
+  return (
+    <div
+      css={css`
+        width: 40ch;
+        word-break: break-all;
+      `}
+    >
+      {"❤️".repeat(Math.max(0, health))}
+    </div>
+  );
 }
 
 function Deck({ deck }: { deck: Array<Card> }) {
-  return <div>{"🂡".repeat(deck.length)}</div>;
+  return (
+    <div
+      css={css`
+        width: 40ch;
+        word-break: break-all;
+      `}
+    >
+      {"🂡".repeat(deck.length)}
+    </div>
+  );
+}
+
+function Equipment({ equipment }: { equipment: Equipment }) {
+  switch (equipment.type) {
+    case "double":
+      return <h3>{equipment.both}</h3>;
+    case "dual":
+      return (
+        <h3>
+          {equipment.left} & {equipment.right}
+        </h3>
+      );
+  }
 }
 
 function Card({ card, onPlay }: { card: Card; onPlay?(): void }) {
@@ -138,6 +183,7 @@ function Card({ card, onPlay }: { card: Card; onPlay?(): void }) {
         &:hover {
           transform: scale(1.2);
         }
+        user-select: none;
       `}
       onClick={onPlay}
     >
@@ -157,6 +203,72 @@ function Card({ card, onPlay }: { card: Card; onPlay?(): void }) {
   );
 }
 
+type Character = {
+  name: string;
+  hp: number;
+  equipment: Equipment;
+};
+
+type Equipment =
+  | {
+      type: "dual";
+      left: keyof typeof singleDecks;
+      right: keyof typeof singleDecks;
+    }
+  | { type: "double"; both: keyof typeof doubleDecks };
+
+type World = {
+  floor: number;
+  type: "fight";
+  player: Character;
+  fight: Fight;
+};
+
+function startWorld(): World {
+  return nextFight(0, { name: "Player", hp: 80, equipment: randomEquipment() });
+}
+
+function nextFight(floor: number, player: Character): World {
+  const mob: Character = {
+    name: "Enemy",
+    hp: 80,
+    equipment: randomEquipment(),
+  };
+  return {
+    type: "fight",
+    floor: floor + 1,
+    player,
+    fight: startFight(player, mob),
+  };
+}
+
+function randomEquipment(): Equipment {
+  if (Math.random() > 0.5) {
+    const [[both]] = draw(
+      Object.keys(doubleDecks) as Array<keyof typeof doubleDecks>,
+      1
+    );
+    return { type: "double", both };
+  } else {
+    const [[left, right]] = draw(
+      Object.keys(singleDecks) as Array<keyof typeof singleDecks>,
+      2
+    );
+    return { type: "dual", left, right };
+  }
+}
+
+function getDeckFromEquipment(equipment: Equipment): Array<Card> {
+  switch (equipment.type) {
+    case "double": {
+      return doubleDecks[equipment.both];
+    }
+    case "dual": {
+      return [...singleDecks[equipment.left], ...singleDecks[equipment.right]];
+    }
+  }
+}
+
 type Card = {
   title: string;
   description: string;
@@ -167,60 +279,65 @@ type Card = {
 
 type Fight = {
   round: number;
-  left: {
+  player: {
+    character: Character;
     hp: number;
     deck: Array<Card>;
     hand: Array<Card>;
   };
-  right: {
+  mob: {
+    character: Character;
     hp: number;
     deck: Array<Card>;
     hand: Card;
   };
 };
 
-function startFight(
-  left: { hp: number; deck: Array<Card> },
-  right: { hp: number; deck: Array<Card> }
-): Fight {
-  const [rightHand, rightDeck] = drawCard(right.deck);
-  const [leftHand, leftDeck] = drawCards(left.deck, 3);
+function startFight(player: Character, mob: Character): Fight {
+  const mobDeck = getDeckFromEquipment(mob.equipment);
+  const [[mobHand], mobDeck1] = draw(mobDeck, 1);
+  const playerDeck = getDeckFromEquipment(player.equipment);
+  const [playerHand, playerDeck1] = draw(playerDeck, 3);
   return {
     round: 0,
-    left: {
-      hp: left.hp,
-      deck: leftDeck,
-      hand: leftHand,
+    player: {
+      character: player,
+      hp: player.hp,
+      deck: playerDeck1,
+      hand: playerHand,
     },
-    right: {
-      hp: right.hp,
-      deck: rightDeck,
-      hand: rightHand,
+    mob: {
+      character: mob,
+      hp: mob.hp,
+      deck: mobDeck1,
+      hand: mobHand,
     },
   };
 }
 
 function playCard(cardIndex: number, fight: Fight): Fight {
-  const [leftCard, newLeftHand1] = removeCard(cardIndex, fight.left.hand);
-  const [rightHand, newRightDeck] = drawCard(fight.right.deck);
-  const rightCard = fight.right.hand;
-  const leftDamage = Math.max(0, rightCard.attack - leftCard.defense);
-  const rightDamage = Math.max(0, leftCard.attack - rightCard.defense);
-  const [newLeftCards2, newLeftDeck1] = drawCards(fight.left.deck, 2);
-  const [leftRecycledCard, newLeftHand2] = removeCard(0, newLeftHand1);
-  const newLeftHand3 = [...newLeftHand2, ...newLeftCards2];
-  const newLeftDeck2 = [...newLeftDeck1, leftRecycledCard];
+  const [playerCard, playerHand1] = remove(cardIndex, fight.player.hand);
+  const [[mobHand], mobDeck1] = draw(fight.mob.deck, 1);
+  const mobCard = fight.mob.hand;
+  const leftDamage = Math.max(0, mobCard.attack - playerCard.defense);
+  const rightDamage = Math.max(0, playerCard.attack - mobCard.defense);
+  const [playerCards2, playerDeck1] = draw(fight.player.deck, 2);
+  const [leftRecycledCard, newLeftHand2] = remove(0, playerHand1);
+  const newLeftHand3 = [...newLeftHand2, ...playerCards2];
+  const newLeftDeck2 = [...playerDeck1, leftRecycledCard];
   return {
     round: fight.round + 1,
-    left: {
-      hp: fight.left.hp - leftDamage,
+    player: {
+      character: fight.player.character,
+      hp: fight.player.hp - leftDamage,
       deck: newLeftDeck2,
       hand: newLeftHand3,
     },
-    right: {
-      hp: fight.right.hp - rightDamage,
-      deck: newRightDeck,
-      hand: rightHand,
+    mob: {
+      character: fight.mob.character,
+      hp: fight.mob.hp - rightDamage,
+      deck: mobDeck1,
+      hand: mobHand,
     },
   };
 }
@@ -454,32 +571,6 @@ const doubleDecks = {
   Lancia,
 };
 
-function randomDoubleDeck() {
-  const deckNames = Object.keys(doubleDecks);
-  const deckName = deckNames[rng(deckNames.length)] as keyof typeof doubleDecks;
-  return [deckName, doubleDecks[deckName]] as const;
-}
-
-function randomDualDeck() {
-  const deckNames = Object.keys(singleDecks);
-  const leftDeckName = deckNames.splice(
-    rng(deckNames.length),
-    1
-  )[0] as keyof typeof singleDecks;
-  const rightDeckName = deckNames.splice(
-    rng(deckNames.length),
-    1
-  )[0] as keyof typeof singleDecks;
-  const deckName = leftDeckName + " & " + rightDeckName;
-  const deck = [...singleDecks[leftDeckName], ...singleDecks[rightDeckName]];
-  return [deckName, deck] as const;
-}
-
-function randomDeck() {
-  if (Math.random() > 0.5) return randomDoubleDeck();
-  else return randomDualDeck();
-}
-
 function repeat<T>(item: T, times: number): Array<T> {
   return new Array(times).fill(item);
 }
@@ -488,35 +579,25 @@ function rng(to: number): number {
   return Math.trunc(Math.random() * to);
 }
 
-function drawCard(deck: Array<Card>): [Card, Array<Card>] {
-  const cardIndex = rng(deck.length);
-  const newDeck = [...deck];
-  const card = newDeck.splice(cardIndex, 1)[0] ?? Riposo;
-  return [card, newDeck];
-}
-
-function drawCards(
-  deck: Array<Card>,
-  times: number
-): [Array<Card>, Array<Card>] {
-  const newDeck = [...deck];
-  const hand = [];
+function draw<T>(array: Array<T>, times: number): [Array<T>, Array<T>] {
+  const newArray = [...array];
+  const drawn = [];
   for (let i = 0; i < times; i++) {
-    const cardIndex = rng(newDeck.length);
-    const card = newDeck.splice(cardIndex, 1)[0];
-    hand.push(card);
+    const index = rng(newArray.length);
+    const item = newArray.splice(index, 1)[0];
+    drawn.push(item);
   }
-  return [hand, newDeck];
+  return [drawn, newArray];
 }
 
-function removeCard(cardIndex: number, deck: Array<Card>): [Card, Array<Card>] {
-  const newDeck = [...deck];
-  const card = newDeck.splice(cardIndex, 1)[0];
+function remove<T>(index: number, array: Array<T>): [T, Array<T>] {
+  const newDeck = [...array];
+  const card = newDeck.splice(index, 1)[0];
   return [card, newDeck];
 }
 
 function getFightState(fight: Fight) {
-  if (fight.left.hp <= 0) return "lose";
-  if (fight.right.hp <= 0) return "win";
+  if (fight.player.hp <= 0) return "lose";
+  if (fight.mob.hp <= 0) return "win";
   return "tie";
 }
