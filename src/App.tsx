@@ -6,6 +6,36 @@ import { css } from "styled-components/macro";
 // intellignece (more powerful attack magic, more defensive magic)
 // wisdom (more attack magic, more powerful defensive magic)
 
+const music = [
+  new Audio(process.env.PUBLIC_URL + "sound/music/bush-pass.mp3"),
+  new Audio(process.env.PUBLIC_URL + "sound/music/cloudy-mood.mp3"),
+  new Audio(process.env.PUBLIC_URL + "sound/music/promenade-vista.mp3"),
+];
+let song: HTMLAudioElement;
+
+let toggleSound = playSound;
+
+function playSound() {
+  song = music[rng(music.length)];
+  song.play();
+  song.addEventListener("ended", function onEnded() {
+    song.currentTime = 0;
+    song.removeEventListener("ended", onEnded);
+    playSound();
+  });
+  toggleSound = pauseSound;
+}
+
+function pauseSound() {
+  if (song) {
+    if (song.paused) {
+      song.play();
+    } else {
+      song.pause();
+    }
+  }
+}
+
 export default function App() {
   const [world, setWorld] = useState(startWorld);
   const fightState = getFightState(world.fight);
@@ -29,6 +59,7 @@ export default function App() {
       >
         <h2>
           Floor: {world.floor} Round: {world.fight.round}
+          <button onClick={() => toggleSound()}>♫</button>
         </h2>
         {(() => {
           switch (fightState) {
@@ -185,7 +216,14 @@ function Card({ card, onPlay }: { card: Card; onPlay?(): void }) {
         }
         user-select: none;
       `}
-      onClick={onPlay}
+      onClick={() => {
+        onPlay?.();
+        if (card.sound) {
+          new Audio(
+            process.env.PUBLIC_URL + "/sound/effects/" + card.sound + ".mp3"
+          ).play();
+        }
+      }}
     >
       <h2>{card.title}</h2>
       <p
@@ -275,6 +313,7 @@ type Card = {
   attack: number;
   defense: number;
   color: string;
+  sound: string;
 };
 
 type Fight = {
@@ -383,6 +422,7 @@ const Riposo: Card = {
   attack: 0,
   defense: 0,
   color: "#71717A",
+  sound: "ha",
 };
 
 const Colpo: Card = {
@@ -391,6 +431,7 @@ const Colpo: Card = {
   attack: 5,
   defense: 0,
   color: "#9F1239",
+  sound: "bam",
 };
 
 const Parata: Card = {
@@ -399,6 +440,7 @@ const Parata: Card = {
   attack: 0,
   defense: 5,
   color: "#3B82F6",
+  sound: "he",
 };
 
 const Spada = makeDeck(single)([
@@ -413,6 +455,7 @@ const Accettata: Card = {
   attack: 10,
   defense: 0,
   color: "#9F1239",
+  sound: "bam",
 };
 
 const Ascia = makeDeck(single)([
@@ -426,6 +469,7 @@ const Pugnalata: Card = {
   attack: 3,
   defense: 0,
   color: "#9F1239",
+  sound: "bam",
 };
 
 const Intercetta: Card = {
@@ -434,6 +478,7 @@ const Intercetta: Card = {
   attack: 0,
   defense: 3,
   color: "#3B82F6",
+  sound: "he",
 };
 
 const Zaccagnata: Card = {
@@ -442,6 +487,7 @@ const Zaccagnata: Card = {
   attack: 8,
   defense: 0,
   color: "#9F1239",
+  sound: "bam",
 };
 
 const Pugnale = makeDeck(single)([
@@ -456,6 +502,7 @@ const Mazzata: Card = {
   attack: 7,
   defense: 0,
   color: "#9F1239",
+  sound: "bam",
 };
 
 const Mazza = makeDeck(single)([
@@ -470,6 +517,7 @@ const Martellata: Card = {
   attack: 15,
   defense: 0,
   color: "#9F1239",
+  sound: "bam",
 };
 
 const Scure = makeDeck(double)([
@@ -490,6 +538,7 @@ const Schivata: Card = {
   attack: 0,
   defense: 10,
   color: "#3B82F6",
+  sound: "he",
 };
 
 const Bastonata: Card = {
@@ -498,6 +547,7 @@ const Bastonata: Card = {
   attack: 5,
   defense: 5,
   color: "#9F1239",
+  sound: "bam",
 };
 
 const Bastone = makeDeck(double)([
@@ -535,6 +585,7 @@ const Freccia: Card = {
   attack: 5,
   defense: 0,
   color: "#9F1239",
+  sound: "bam",
 };
 
 const Arco = makeDeck(double)([...repeat(Freccia, 40), ...repeat(Riposo, 20)]);
@@ -545,6 +596,7 @@ const Dardo: Card = {
   attack: 15,
   defense: 0,
   color: "#9F1239",
+  sound: "bam",
 };
 
 const Balestra = makeDeck(double)([
