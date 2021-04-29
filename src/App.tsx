@@ -100,6 +100,7 @@ export default function App() {
           <h1>{world.fight.player.character.name}</h1>
           <Equipment equipment={world.fight.player.character.equipment} />
           <Healthbar health={world.fight.player.hp} />
+          <Bleeding bleeding={world.fight.player.bleeding} />
           <Deck deck={world.fight.player.deck} />
         </div>
         <div
@@ -122,7 +123,7 @@ export default function App() {
                       break;
                     }
                     case "win": {
-                      setWorld(nextFight(world.floor, world.player));
+                      setWorld(nextFight(world.floor + 1, world.player));
                       break;
                     }
                     case "lose": {
@@ -150,6 +151,7 @@ export default function App() {
           <h1>{world.fight.mob.character.name}</h1>
           <Equipment equipment={world.fight.mob.character.equipment} />
           <Healthbar health={world.fight.mob.hp} />
+          <Bleeding bleeding={world.fight.mob.bleeding} />
           <Deck deck={world.fight.mob.deck} />
         </div>
         <Card card={world.fight.mob.hand} />
@@ -180,6 +182,16 @@ function Deck({ deck }: { deck: Array<Card> }) {
       `}
     >
       {"🂡".repeat(deck.length)}
+    </div>
+  );
+}
+
+function Bleeding({ bleeding }: { bleeding: Array<number> }) {
+  return (
+    <div>
+      {bleeding.map((wound, index) => {
+        return <div key={index}>{"🩸".repeat(wound)}</div>;
+      })}
     </div>
   );
 }
@@ -218,11 +230,11 @@ function Card({ card, onPlay }: { card: Card; onPlay?(): void }) {
       `}
       onClick={() => {
         onPlay?.();
-        if (card.sound) {
-          new Audio(
-            process.env.PUBLIC_URL + "/sound/effects/" + card.sound + ".mp3"
-          ).play();
-        }
+        // if (card.sound) {
+        //   new Audio(
+        //     process.env.PUBLIC_URL + "/sound/effects/" + card.sound + ".mp3"
+        //   ).play();
+        // }
       }}
     >
       <h2>{card.title}</h2>
@@ -263,20 +275,20 @@ type World = {
 };
 
 function startWorld(): World {
-  return nextFight(0, { name: "Player", hp: 80, equipment: randomEquipment() });
+  return nextFight(1, { name: "Player", hp: 80, equipment: randomEquipment() });
 }
 
 function nextFight(floor: number, player: Character): World {
   const mob: Character = {
     name: "Enemy",
-    hp: 80,
+    hp: 80 + 10 * floor,
     equipment: randomEquipment(),
   };
   return {
     type: "fight",
-    floor: floor + 1,
+    floor: floor,
     player,
-    fight: startFight(player, mob),
+    fight: startFight(floor, player, mob),
   };
 }
 
@@ -321,6 +333,7 @@ type Fight = {
   player: {
     character: Character;
     hp: number;
+    bleeding: Array<number>;
     deck: Array<Card>;
     hand: Array<Card>;
   };
@@ -329,25 +342,28 @@ type Fight = {
     hp: number;
     deck: Array<Card>;
     hand: Card;
+    bleeding: Array<number>;
   };
 };
 
-function startFight(player: Character, mob: Character): Fight {
+function startFight(floor: number, player: Character, mob: Character): Fight {
   const mobDeck = getDeckFromEquipment(mob.equipment);
   const [[mobHand], mobDeck1] = draw(mobDeck, 1);
   const playerDeck = getDeckFromEquipment(player.equipment);
-  const [playerHand, playerDeck1] = draw(playerDeck, 3);
+  const [playerHand, playerDeck1] = draw(playerDeck, 3 + Math.trunc(floor / 3));
   return {
     round: 0,
     player: {
       character: player,
       hp: player.hp,
+      bleeding: [],
       deck: playerDeck1,
       hand: playerHand,
     },
     mob: {
       character: mob,
       hp: mob.hp,
+      bleeding: [],
       deck: mobDeck1,
       hand: mobHand,
     },
@@ -358,27 +374,43 @@ function playCard(cardIndex: number, fight: Fight): Fight {
   const [playerCard, playerHand1] = remove(cardIndex, fight.player.hand);
   const [[mobHand], mobDeck1] = draw(fight.mob.deck, 1);
   const mobCard = fight.mob.hand;
-  const leftDamage = Math.max(0, mobCard.attack - playerCard.defense);
-  const rightDamage = Math.max(0, playerCard.attack - mobCard.defense);
+  const playerDamage = Math.max(0, mobCard.attack - playerCard.defense);
+  const mobDamage = Math.max(0, playerCard.attack - mobCard.defense);
   const [playerCards2, playerDeck1] = draw(fight.player.deck, 2);
-  const [leftRecycledCard, newLeftHand2] = remove(0, playerHand1);
-  const newLeftHand3 = [...newLeftHand2, ...playerCards2];
-  const newLeftDeck2 = [...playerDeck1, leftRecycledCard];
+  const [playerRecycledCard, playerHand2] = remove(0, playerHand1);
+  const playerHand3 = [...playerHand2, ...playerCards2];
+  const playerDeck2 = [...playerDeck1, playerRecycledCard];
+  const [playerBleedingDamage, playerBleeding1] = getBleedingDamage(
+    fight.player.bleeding
+  );
+  const [mobBleedingDamage, mobBleeding1] = getBleedingDamage(
+    fight.mob.bleeding
+  );
   return {
     round: fight.round + 1,
     player: {
       character: fight.player.character,
-      hp: fight.player.hp - leftDamage,
-      deck: newLeftDeck2,
-      hand: newLeftHand3,
+      hp: fight.player.hp - playerDamage - playerBleedingDamage,
+      bleeding: playerBleeding1.concat(playerDamage),
+      deck: playerDeck2,
+      hand: playerHand3,
     },
     mob: {
       character: fight.mob.character,
-      hp: fight.mob.hp - rightDamage,
+      hp: fight.mob.hp - mobDamage - mobBleedingDamage,
+      bleeding: mobBleeding1.concat(mobDamage),
       deck: mobDeck1,
       hand: mobHand,
     },
   };
+}
+
+function getBleedingDamage(bleeding: Array<number>): [number, Array<number>] {
+  const damage = bleeding.filter((wound) => wound > 0).length;
+  const bleeding1 = bleeding
+    .map((wound) => wound - 1)
+    .filter((wound) => wound > 0);
+  return [damage, bleeding1];
 }
 
 function makeDeck({
