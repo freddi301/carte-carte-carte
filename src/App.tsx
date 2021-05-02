@@ -1,5 +1,19 @@
 import React, { useState } from "react";
 import { css } from "styled-components/macro";
+import { AttackType, Card } from "./decks/common";
+import { Spada } from "./decks/Spada";
+import { Pugnale } from "./decks/Pugnale";
+import { Mazza } from "./decks/Mazza";
+import { Ascia } from "./decks/Ascia";
+import { Stocco } from "./decks/Stocco";
+import { Scure } from "./decks/Scure";
+import { Martello } from "./decks/Martello";
+import { Bastone } from "./decks/Bastone";
+import { Arco } from "./decks/Arco";
+import { Balestra } from "./decks/Balestra";
+import { Spadone } from "./decks/Spadone";
+import { Katana } from "./decks/Katana";
+import { Lancia } from "./decks/Lancia";
 
 // strength (enhance : heavy attack, heavy defence)
 // dexterity (enhance : light attack, light defence)
@@ -92,17 +106,7 @@ export default function App() {
           grid-column: 1;
         `}
       >
-        <div
-          css={css`
-            padding: 40px;
-          `}
-        >
-          <h1>{world.fight.player.character.name}</h1>
-          <Equipment equipment={world.fight.player.character.equipment} />
-          <Healthbar health={world.fight.player.hp} />
-          <Bleeding bleeding={world.fight.player.bleeding} />
-          <Deck deck={world.fight.player.deck} />
-        </div>
+        <FighterComponent state={world.fight.player} />
         <div
           css={css`
             display: flex;
@@ -110,29 +114,36 @@ export default function App() {
         >
           {world.fight.player.hand.map((card, index) => {
             return (
-              <Card
+              <div
                 key={index}
-                card={card}
-                onPlay={() => {
-                  switch (fightState) {
-                    case "tie": {
-                      setWorld((world) => ({
-                        ...world,
-                        fight: playCard(index, world.fight),
-                      }));
-                      break;
+                css={css`
+                  margin: 4px;
+                  transform: scale(${3 / world.fight.player.hand.length});
+                `}
+              >
+                <CardComponent
+                  card={card}
+                  onPlay={() => {
+                    switch (fightState) {
+                      case "tie": {
+                        setWorld((world) => ({
+                          ...world,
+                          fight: playCard(index, world.fight),
+                        }));
+                        break;
+                      }
+                      case "win": {
+                        setWorld(nextFight(world.floor + 1, world.player));
+                        break;
+                      }
+                      case "lose": {
+                        setWorld(startWorld());
+                        break;
+                      }
                     }
-                    case "win": {
-                      setWorld(nextFight(world.floor + 1, world.player));
-                      break;
-                    }
-                    case "lose": {
-                      setWorld(startWorld());
-                      break;
-                    }
-                  }
-                }}
-              />
+                  }}
+                />
+              </div>
             );
           })}
         </div>
@@ -143,73 +154,91 @@ export default function App() {
           grid-column: 2;
         `}
       >
-        <div
-          css={css`
-            padding: 40px;
-          `}
-        >
-          <h1>{world.fight.mob.character.name}</h1>
-          <Equipment equipment={world.fight.mob.character.equipment} />
-          <Healthbar health={world.fight.mob.hp} />
-          <Bleeding bleeding={world.fight.mob.bleeding} />
-          <Deck deck={world.fight.mob.deck} />
-        </div>
-        <Card card={world.fight.mob.hand} />
+        <FighterComponent state={world.fight.mob} />
+        <CardComponent card={world.fight.mob.hand[0]} />
       </div>
     </div>
   );
 }
 
-function Healthbar({ health }: { health: number }) {
+function FighterComponent({ state }: { state: FighterState }) {
   return (
     <div
       css={css`
-        width: 40ch;
-        word-break: break-all;
+        padding: 40px;
       `}
     >
-      {"❤️".repeat(Math.max(0, health))}
+      <div
+        css={css`
+          display: grid;
+          grid-template-columns: auto auto auto auto;
+          grid-column-gap: 10px;
+          width: 300px;
+        `}
+      >
+        <Healthbar health={state.hp} />
+        <Deck deck={state.deck} />
+        <strong>{state.character.name}</strong>
+        <EquipmentComponent equipment={state.character.equipment} />
+      </div>
+      <Bleeding bleeding={state.bleeding} />
+      <Fracture fracture={state.fracture} />
     </div>
   );
 }
 
+function Healthbar({ health }: { health: number }) {
+  return <div>❤️ {health}</div>;
+}
+
 function Deck({ deck }: { deck: Array<Card> }) {
-  return (
-    <div
-      css={css`
-        width: 40ch;
-        word-break: break-all;
-      `}
-    >
-      {"🂡".repeat(deck.length)}
-    </div>
-  );
+  return <div>🂡 {deck.length}</div>;
 }
 
 function Bleeding({ bleeding }: { bleeding: Array<number> }) {
   return (
-    <div>
+    <div
+      css={css`
+        display: flex;
+      `}
+    >
+      <div>🩸({bleeding.length})</div>
       {bleeding.map((wound, index) => {
-        return <div key={index}>{"🩸".repeat(wound)}</div>;
+        return <div key={index}>{wound},</div>;
       })}
     </div>
   );
 }
 
-function Equipment({ equipment }: { equipment: Equipment }) {
+function Fracture({ fracture }: { fracture: Array<number> }) {
+  return (
+    <div
+      css={css`
+        display: flex;
+      `}
+    >
+      <div>🦴({fracture.length})</div>
+      {fracture.map((wound, index) => {
+        return <div key={index}>{wound},</div>;
+      })}
+    </div>
+  );
+}
+
+function EquipmentComponent({ equipment }: { equipment: Equipment }) {
   switch (equipment.type) {
     case "double":
-      return <h3>{equipment.both}</h3>;
+      return <span>{equipment.both}</span>;
     case "dual":
       return (
-        <h3>
+        <span>
           {equipment.left} & {equipment.right}
-        </h3>
+        </span>
       );
   }
 }
 
-function Card({ card, onPlay }: { card: Card; onPlay?(): void }) {
+function CardComponent({ card, onPlay }: { card: Card; onPlay?(): void }) {
   return (
     <div
       css={css`
@@ -217,7 +246,6 @@ function Card({ card, onPlay }: { card: Card; onPlay?(): void }) {
         height: 8.89cm;
         border-radius: 0.5cm;
         padding: 1cm;
-        margin: 0.5cm;
         box-sizing: border-box;
         box-shadow: rgba(0, 0, 0, 0.19) 0px 10px 20px,
           rgba(0, 0, 0, 0.23) 0px 6px 6px;
@@ -230,11 +258,11 @@ function Card({ card, onPlay }: { card: Card; onPlay?(): void }) {
       `}
       onClick={() => {
         onPlay?.();
-        // if (card.sound) {
-        //   new Audio(
-        //     process.env.PUBLIC_URL + "/sound/effects/" + card.sound + ".mp3"
-        //   ).play();
-        // }
+        if (card.sound) {
+          new Audio(
+            process.env.PUBLIC_URL + "/sound/effects/" + card.sound + ".mp3"
+          ).play();
+        }
       }}
     >
       <h2>{card.title}</h2>
@@ -242,15 +270,28 @@ function Card({ card, onPlay }: { card: Card; onPlay?(): void }) {
         css={css`
           font-size: 20px;
           font-weight: bold;
-          word-break: break-all;
         `}
       >
-        {"⚔".repeat(card.attack)}
+        {card.attack > 0 && (
+          <>
+            ⚔ {card.attack} <AttackTypeComponent attackType={card.attackType} />
+          </>
+        )}
         <br />
-        {"🛡️".repeat(card.defense)}
+        {card.defense > 0 && <>🛡️ {card.defense}</>}
       </p>
     </div>
   );
+}
+
+function AttackTypeComponent({ attackType }: { attackType: AttackType }) {
+  switch (attackType) {
+    case "slash":
+    case "thrust":
+      return <>🩸</>;
+    case "impact":
+      return <>🦴</>;
+  }
 }
 
 type Character = {
@@ -319,36 +360,24 @@ function getDeckFromEquipment(equipment: Equipment): Array<Card> {
   }
 }
 
-type Card = {
-  title: string;
-  description: string;
-  attack: number;
-  defense: number;
-  color: string;
-  sound: string;
-};
-
 type Fight = {
   round: number;
-  player: {
-    character: Character;
-    hp: number;
-    bleeding: Array<number>;
-    deck: Array<Card>;
-    hand: Array<Card>;
-  };
-  mob: {
-    character: Character;
-    hp: number;
-    deck: Array<Card>;
-    hand: Card;
-    bleeding: Array<number>;
-  };
+  player: FighterState;
+  mob: FighterState;
+};
+
+type FighterState = {
+  character: Character;
+  hp: number;
+  bleeding: Array<number>;
+  fracture: Array<number>;
+  deck: Array<Card>;
+  hand: Array<Card>;
 };
 
 function startFight(floor: number, player: Character, mob: Character): Fight {
   const mobDeck = getDeckFromEquipment(mob.equipment);
-  const [[mobHand], mobDeck1] = draw(mobDeck, 1);
+  const [mobHand, mobDeck1] = draw(mobDeck, 1);
   const playerDeck = getDeckFromEquipment(player.equipment);
   const [playerHand, playerDeck1] = draw(playerDeck, 3 + Math.trunc(floor / 3));
   return {
@@ -357,6 +386,7 @@ function startFight(floor: number, player: Character, mob: Character): Fight {
       character: player,
       hp: player.hp,
       bleeding: [],
+      fracture: [],
       deck: playerDeck1,
       hand: playerHand,
     },
@@ -364,6 +394,7 @@ function startFight(floor: number, player: Character, mob: Character): Fight {
       character: mob,
       hp: mob.hp,
       bleeding: [],
+      fracture: [],
       deck: mobDeck1,
       hand: mobHand,
     },
@@ -373,34 +404,64 @@ function startFight(floor: number, player: Character, mob: Character): Fight {
 function playCard(cardIndex: number, fight: Fight): Fight {
   const [playerCard, playerHand1] = remove(cardIndex, fight.player.hand);
   const [[mobHand], mobDeck1] = draw(fight.mob.deck, 1);
-  const mobCard = fight.mob.hand;
-  const playerDamage = Math.max(0, mobCard.attack - playerCard.defense);
-  const mobDamage = Math.max(0, playerCard.attack - mobCard.defense);
-  const [playerCards2, playerDeck1] = draw(fight.player.deck, 2);
-  const [playerRecycledCard, playerHand2] = remove(0, playerHand1);
-  const playerHand3 = [...playerHand2, ...playerCards2];
-  const playerDeck2 = [...playerDeck1, playerRecycledCard];
+  const [mobCard] = fight.mob.hand;
   const [playerBleedingDamage, playerBleeding1] = getBleedingDamage(
     fight.player.bleeding
+  );
+  const [playerFractureDamage, playerFracture1] = getFractureDamage(
+    fight.player.fracture
   );
   const [mobBleedingDamage, mobBleeding1] = getBleedingDamage(
     fight.mob.bleeding
   );
+  const [mobFractureDamage, mobFracture1] = getFractureDamage(
+    fight.mob.fracture
+  );
+  const playerDamage = Math.max(
+    0,
+    mobCard.attack - mobFractureDamage - playerCard.defense
+  );
+  const mobDamage = Math.max(
+    0,
+    playerCard.attack - playerFractureDamage - mobCard.defense
+  );
+  const [playerCards2, playerDeck1] = draw(fight.player.deck, 2);
+  const [playerRecycledCard, playerHand2] = remove(0, playerHand1);
+  const playerHand3 = [...playerHand2, ...playerCards2];
+  const playerDeck2 = [...playerDeck1, playerRecycledCard];
   return {
     round: fight.round + 1,
     player: {
       character: fight.player.character,
       hp: fight.player.hp - playerDamage - playerBleedingDamage,
-      bleeding: playerBleeding1.concat(playerDamage),
+      bleeding: [
+        ...playerBleeding1,
+        mobCard.attackType === "slash" || mobCard.attackType === "thrust"
+          ? playerDamage
+          : 0,
+      ].filter(Boolean),
+      fracture: [
+        ...playerFracture1,
+        mobCard.attackType === "impact" ? playerDamage : 0,
+      ].filter(Boolean),
       deck: playerDeck2,
       hand: playerHand3,
     },
     mob: {
       character: fight.mob.character,
       hp: fight.mob.hp - mobDamage - mobBleedingDamage,
-      bleeding: mobBleeding1.concat(mobDamage),
+      bleeding: [
+        ...mobBleeding1,
+        playerCard.attackType === "slash" || playerCard.attackType === "thrust"
+          ? mobDamage
+          : 0,
+      ].filter(Boolean),
+      fracture: [
+        ...mobFracture1,
+        playerCard.attackType === "impact" ? mobDamage : 0,
+      ].filter(Boolean),
       deck: mobDeck1,
-      hand: mobHand,
+      hand: [mobHand],
     },
   };
 }
@@ -413,249 +474,34 @@ function getBleedingDamage(bleeding: Array<number>): [number, Array<number>] {
   return [damage, bleeding1];
 }
 
-function makeDeck({
-  totalCards,
-  totalEnergy,
-  totalAttack,
-}: {
-  totalCards: number;
-  totalAttack: number;
-  totalEnergy: number;
-}) {
-  return (cards: Array<Card>) => {
-    if (cards.length < totalCards)
-      throw new Error(`not enough cards ${cards.length} < ${totalCards}`);
-    if (cards.length > totalCards)
-      throw new Error(`too much cards ${cards.length} > ${totalCards}`);
-    const [attack, defense] = cards.reduce(
-      ([attack, defense], card) => [
-        attack + card.attack,
-        defense + card.defense,
-      ],
-      [0, 0]
-    );
-    if (attack < totalAttack)
-      throw new Error(`not enough attack ${attack} < ${totalAttack}`);
-    const energy = attack + defense;
-    if (energy < totalEnergy)
-      throw new Error(`not enough energy ${energy} < ${totalEnergy}`);
-    if (energy > totalEnergy)
-      throw new Error(`too much energy ${energy} > ${totalEnergy}`);
-    return cards;
-  };
+function getFractureDamage(farcture: Array<number>): [number, Array<number>] {
+  const damage = farcture.filter((wound) => wound > 0).length;
+  const farcture1 = farcture
+    .map((wound) => wound - 1)
+    .filter((wound) => wound > 0);
+  return [damage, farcture1];
 }
 
-const single = { totalCards: 30, totalEnergy: 100, totalAttack: 50 };
-const double = { totalCards: 60, totalEnergy: 200, totalAttack: 100 };
-
-const Riposo: Card = {
-  title: "Riposo",
-  description: "",
-  attack: 0,
-  defense: 0,
-  color: "#71717A",
-  sound: "ha",
-};
-
-const Colpo: Card = {
-  title: "Colpo",
-  description: "",
-  attack: 5,
-  defense: 0,
-  color: "#9F1239",
-  sound: "bam",
-};
-
-const Parata: Card = {
-  title: "Parata",
-  description: "",
-  attack: 0,
-  defense: 5,
-  color: "#3B82F6",
-  sound: "he",
-};
-
-const Spada = makeDeck(single)([
-  ...repeat(Colpo, 10),
-  ...repeat(Parata, 10),
-  ...repeat(Riposo, 10),
-]);
-
-const Accettata: Card = {
-  title: "Accettata",
-  description: "",
-  attack: 10,
-  defense: 0,
-  color: "#9F1239",
-  sound: "bam",
-};
-
-const Ascia = makeDeck(single)([
-  ...repeat(Accettata, 10),
-  ...repeat(Riposo, 20),
-]);
-
-const Pugnalata: Card = {
-  title: "Pugnalata",
-  description: "",
-  attack: 3,
-  defense: 0,
-  color: "#9F1239",
-  sound: "bam",
-};
-
-const Intercetta: Card = {
-  title: "Intercetta",
-  description: "",
-  attack: 0,
-  defense: 3,
-  color: "#3B82F6",
-  sound: "he",
-};
-
-const Zaccagnata: Card = {
-  title: "Zaccagnata",
-  description: "",
-  attack: 8,
-  defense: 0,
-  color: "#9F1239",
-  sound: "bam",
-};
-
-const Pugnale = makeDeck(single)([
-  ...repeat(Pugnalata, 14),
-  ...repeat(Intercetta, 14),
-  ...repeat(Zaccagnata, 2),
-]);
-
-const Mazzata: Card = {
-  title: "Mazzata",
-  description: "",
-  attack: 7,
-  defense: 0,
-  color: "#9F1239",
-  sound: "bam",
-};
-
-const Mazza = makeDeck(single)([
-  ...repeat(Mazzata, 10),
-  ...repeat(Intercetta, 10),
-  ...repeat(Riposo, 10),
-]);
-
-const Martellata: Card = {
-  title: "Martellata",
-  description: "",
-  attack: 15,
-  defense: 0,
-  color: "#9F1239",
-  sound: "bam",
-};
-
-const Scure = makeDeck(double)([
-  ...repeat(Martellata, 11),
-  ...repeat(Parata, 7),
-  ...repeat(Riposo, 42),
-]);
-
-const Martello = makeDeck(double)([
-  ...repeat(Martellata, 7),
-  ...repeat(Parata, 19),
-  ...repeat(Riposo, 34),
-]);
-
-const Schivata: Card = {
-  title: "Schivata",
-  description: "",
-  attack: 0,
-  defense: 10,
-  color: "#3B82F6",
-  sound: "he",
-};
-
-const Bastonata: Card = {
-  title: "Bastonata",
-  description: "",
-  attack: 5,
-  defense: 5,
-  color: "#9F1239",
-  sound: "bam",
-};
-
-const Bastone = makeDeck(double)([
-  ...repeat(Colpo, 10),
-  ...repeat(Bastonata, 10),
-  ...repeat(Schivata, 5),
-  ...repeat(Riposo, 35),
-]);
-
-const Spadone = makeDeck(double)([
-  ...repeat(Martellata, 5),
-  ...repeat(Bastonata, 10),
-  ...repeat(Colpo, 5),
-  ...repeat(Riposo, 40),
-]);
-
-const Katana = makeDeck(double)([
-  ...repeat(Martellata, 7),
-  ...repeat(Bastonata, 2),
-  ...repeat(Colpo, 15),
-  ...repeat(Riposo, 36),
-]);
-
-const Lancia = makeDeck(double)([
-  ...repeat(Bastonata, 2),
-  ...repeat(Accettata, 9),
-  ...repeat(Parata, 14),
-  ...repeat(Schivata, 2),
-  ...repeat(Riposo, 33),
-]);
-
-const Freccia: Card = {
-  title: "Freccia",
-  description: "",
-  attack: 5,
-  defense: 0,
-  color: "#9F1239",
-  sound: "bam",
-};
-
-const Arco = makeDeck(double)([...repeat(Freccia, 40), ...repeat(Riposo, 20)]);
-
-const Dardo: Card = {
-  title: "Dardo",
-  description: "",
-  attack: 15,
-  defense: 0,
-  color: "#9F1239",
-  sound: "bam",
-};
-
-const Balestra = makeDeck(double)([
-  ...repeat(Dardo, 13),
-  Parata,
-  ...repeat(Riposo, 46),
-]);
-
 const singleDecks = {
-  Spada,
-  Pugnale,
-  Mazza,
-  Ascia,
+  Spada: Spada,
+  Pugnale: Pugnale,
+  Mazza: Mazza,
+  Ascia: Ascia,
+  Stocco: Stocco,
 };
 
 const doubleDecks = {
-  Scure,
-  Martello,
-  Bastone,
-  Arco,
-  Balestra,
-  Spadone,
-  Katana,
-  Lancia,
+  Scure: Scure,
+  Martello: Martello,
+  Bastone: Bastone,
+  Arco: Arco,
+  Balestra: Balestra,
+  Spadone: Spadone,
+  Katana: Katana,
+  Lancia: Lancia,
 };
 
-function repeat<T>(item: T, times: number): Array<T> {
+export function repeat<T>(item: T, times: number): Array<T> {
   return new Array(times).fill(item);
 }
 
